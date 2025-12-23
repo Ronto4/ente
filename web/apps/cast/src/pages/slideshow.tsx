@@ -10,6 +10,7 @@ import { imageURLGenerator } from "services/render";
 const Page: React.FC = () => {
     const [isEmpty, setIsEmpty] = useState(false);
     const [imageURL, setImageURL] = useState("");
+    const [imageDate, setImageDate] = useState("");
 
     const router = useRouter();
 
@@ -23,16 +24,19 @@ const Page: React.FC = () => {
             try {
                 const urlGenerator = imageURLGenerator(readCastData()!);
                 while (!stop) {
-                    const { value: url, done } = await urlGenerator.next();
-                    if (done == true || !url) {
+                    const { value, done } = await urlGenerator.next();
+                    if (done == true) {
                         // No items in this callection can be shown.
                         setIsEmpty(true);
                         // Go back to pairing screen after 5 seconds.
                         setTimeout(pair, 5000);
                         return;
                     }
+                    const url: string = value.url;
+                    const date: string = value.date;
 
                     setImageURL(url);
+                    setImageDate(date);
                 }
             } catch (e) {
                 log.error("Failed to prepare generator", e);
@@ -51,9 +55,9 @@ const Page: React.FC = () => {
     if (!imageURL) return <PairingComplete />;
 
     return isChromecast() ? (
-        <SlideViewChromecast url={imageURL} />
+        <SlideViewChromecast url={imageURL} date={imageDate} />
     ) : (
-        <SlideView url={imageURL} />
+        <SlideView url={imageURL} date={imageDate} />
     );
 };
 
@@ -99,12 +103,15 @@ const NoItems: React.FC = () => {
 interface SlideViewProps {
     /** The URL of the image to show. */
     url: string;
+    /** The date the image was taken. */
+    date: string;
 }
 
-const SlideView: React.FC<SlideViewProps> = ({ url }) => {
+const SlideView: React.FC<SlideViewProps> = ({ url, date }) => {
     return (
         <SlideView_ style={{ backgroundImage: `url(${url})` }}>
             <img src={url} decoding="sync" alt="" />
+            <p style={{ position: "absolute", bottom: 0, right: 0, paddingRight: "3em", fontSize: "2vh" }}>{date}</p>
         </SlideView_>
     );
 };
