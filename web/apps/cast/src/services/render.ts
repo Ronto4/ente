@@ -49,8 +49,12 @@ export const imageURLGenerator = async function* (castData: CastData) {
             if (!isFileEligible(file)) continue;
 
             let url: string;
+            let date: string;
             try {
                 url = await createRenderableURL(castToken, file);
+                const imageDate = new Date(0);
+                imageDate.setUTCSeconds((file.pubMagicMetadata?.data.editedTime ?? file.metadata.creationTime) / (1000 * 1000));
+                date = imageDate.toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric" });
                 consecutiveFailures = 0;
                 haveEligibleFiles = true;
             } catch (e) {
@@ -76,7 +80,7 @@ export const imageURLGenerator = async function* (castData: CastData) {
                 await wait(slideDuration - elapsedTime);
 
             lastYieldTime = Date.now();
-            yield url;
+            yield ({ url, date });
         }
 
         if (!haveEligibleFiles) return;
