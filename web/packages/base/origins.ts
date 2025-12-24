@@ -130,3 +130,10 @@ export const shareAppOrigin = (): string =>
  */
 export const photosAppOrigin = (): string =>
     process.env.NEXT_PUBLIC_ENTE_PHOTOS_ENDPOINT ?? "https://web.ente.io";
+
+/**
+ * Return the origin that serves reverse geocode requests, if specified.
+ *
+ * Must have a [Nominatim-style endpoint at `/reverse`](https://nominatim.org/release-docs/5.2/api/Reverse/).
+ */
+export const reverseGeocodeOrigin = (): string | undefined => process.env.NEXT_PUBLIC_REVERSE_GEOCODE_ENDPOINT;

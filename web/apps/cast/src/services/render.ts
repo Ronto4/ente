@@ -2,7 +2,7 @@ import { decryptStreamBytes } from "ente-base/crypto";
 import { nameAndExtension } from "ente-base/file-name";
 import { ensureOk, isHTTP401Error, publicRequestHeaders } from "ente-base/http";
 import log from "ente-base/log";
-import { apiURL, customAPIOrigin } from "ente-base/origins";
+import { apiURL, customAPIOrigin, reverseGeocodeOrigin } from "ente-base/origins";
 import {
     decryptRemoteFile,
     FileDiffResponse,
@@ -94,11 +94,43 @@ export const imageURLGenerator = async function* (castData: CastData) {
 
             let url: string;
             let date: string;
+            let location: string | undefined;
             try {
                 url = await createRenderableURL(castToken, file);
                 const imageDate = new Date(0);
                 imageDate.setUTCSeconds((file.pubMagicMetadata?.data.editedTime ?? file.metadata.creationTime) / (1000 * 1000));
                 date = imageDate.toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+                {
+                    const lat = file.pubMagicMetadata?.data.lat ?? file.metadata.latitude;
+                    const long = file.pubMagicMetadata?.data.long ?? file.metadata.longitude;
+                    if (lat === undefined || long === undefined) {
+                        location = undefined;
+                    } else {
+                        const reverseGeocodeOriginUrl = reverseGeocodeOrigin();
+                        if (reverseGeocodeOriginUrl) {
+                            const locationUrl = `${reverseGeocodeOriginUrl}/reverse?lat=${lat}&lon=${long}&format=jsonv2&zoom=10`;
+                            // Only include the relevant part, see https://nominatim.org/release-docs/5.2/api/Output/ for more details.
+                            const locationResult = await (await fetch(locationUrl)).json() as
+                                | { error: string }
+                                | {
+                                    display_name: string,
+                                    addresstype: string,
+                                    address: {
+                                        [key: string]: string,
+                                        country_code: string,
+                                    },
+                                };
+                            if ("display_name" in locationResult) {
+                                // TODO: @Ronto4 2025-12-26 Maybe rather use `toLocaleUpperCase` for the country code?
+                                location = `${locationResult.address[locationResult.addresstype]}, ${locationResult.address.country_code.toUpperCase()}`;
+                            } else {
+                                location = undefined;
+                            }
+                        } else {
+                            location = undefined;
+                        }
+                    }
+                }
                 consecutiveFailures = 0;
                 haveEligibleFiles = true;
             } catch (e) {
@@ -137,7 +169,7 @@ export const imageURLGenerator = async function* (castData: CastData) {
                 await wait(slideDuration - elapsedTime);
 
             lastYieldTime = Date.now();
-            yield ({ url, date });
+            yield ({ url, date, location });
         }
 
         // This collection does not have any files that we can show.

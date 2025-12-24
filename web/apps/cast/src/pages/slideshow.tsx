@@ -11,6 +11,7 @@ const Page: React.FC = () => {
     const [isEmpty, setIsEmpty] = useState(false);
     const [imageURL, setImageURL] = useState("");
     const [imageDate, setImageDate] = useState("");
+    const [imageLocation, setImageLocation] = useState<string | undefined>("");
 
     const router = useRouter();
 
@@ -34,9 +35,11 @@ const Page: React.FC = () => {
                     }
                     const url: string = value.url;
                     const date: string = value.date;
+                    const location: string | undefined = value.location;
 
                     setImageURL(url);
                     setImageDate(date);
+                    setImageLocation(location);
                 }
             } catch (e) {
                 log.error("Failed to prepare generator", e);
@@ -55,9 +58,9 @@ const Page: React.FC = () => {
     if (!imageURL) return <PairingComplete />;
 
     return isChromecast() ? (
-        <SlideViewChromecast url={imageURL} date={imageDate} />
+        <SlideViewChromecast url={imageURL} date={imageDate} location={imageLocation} />
     ) : (
-        <SlideView url={imageURL} date={imageDate} />
+        <SlideView url={imageURL} date={imageDate} location={imageLocation} />
     );
 };
 
@@ -105,13 +108,15 @@ interface SlideViewProps {
     url: string;
     /** The date the image was taken. */
     date: string;
+    /** The location where the image was taken, if it is known. */
+    location: string | undefined;
 }
 
-const SlideView: React.FC<SlideViewProps> = ({ url, date }) => {
+const SlideView: React.FC<SlideViewProps> = ({ url, date, location }) => {
     return (
         <SlideView_ style={{ backgroundImage: `url(${url})` }}>
             <img src={url} decoding="sync" alt="" />
-            <p style={{ position: "absolute", bottom: 0, right: 0, paddingRight: "3em", fontSize: "2vh" }}>{date}</p>
+            <p style={{ position: "absolute", textAlign: "end", bottom: 0, right: 0, paddingRight: "3em", fontSize: "2vh" }}>{date}<br/>{location}</p>
         </SlideView_>
     );
 };
