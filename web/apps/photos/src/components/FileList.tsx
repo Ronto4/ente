@@ -1,5 +1,6 @@
 import AlbumOutlinedIcon from "@mui/icons-material/AlbumOutlined";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
+import NotListedLocationRoundedIcon from "@mui/icons-material/NotListedLocationRounded";
 import PlayCircleOutlineOutlinedIcon from "@mui/icons-material/PlayCircleOutlineOutlined";
 import { Box, Checkbox, Fab, Typography, styled } from "@mui/material";
 import Avatar from "components/Avatar";
@@ -1895,9 +1896,14 @@ const FileThumbnail: React.FC<FileThumbnailProps> = ({
                     <Avatar {...{ user, file, emailByUserID }} />
                 </AvatarOverlay>
             )}
-            {isFav && (
+            {(isFav || !hasLocation(file)) && (
                 <FavoriteOverlay>
-                    <StarIcon fontSize="small" />
+                    {
+                        isFav && (<StarIcon fontSize="small" />)
+                    }
+                    {
+                        !hasLocation(file) && (<NotListedLocationRoundedIcon />)
+                    }
                 </FavoriteOverlay>
             )}
 
@@ -1917,6 +1923,9 @@ const FileThumbnail: React.FC<FileThumbnailProps> = ({
         </FileThumbnail_>
     );
 };
+
+
+const hasLocation = (file: EnteFile): boolean => (!!(file.pubMagicMetadata?.data.lat || file.metadata.latitude)) && (!!(file.pubMagicMetadata?.data.long || file.metadata.longitude));
 
 const FileThumbnail_ = styled("div")<{
     disabled: boolean;
