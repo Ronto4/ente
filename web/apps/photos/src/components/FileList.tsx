@@ -22,6 +22,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import AlbumOutlinedIcon from "@mui/icons-material/AlbumOutlined";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import PlayArrowRoundedIcon from "@mui/icons-material/PlayArrowRounded";
+import NotListedLocationRoundedIcon from "@mui/icons-material/NotListedLocationRounded";
 import PlayCircleOutlineOutlinedIcon from "@mui/icons-material/PlayCircleOutlineOutlined";
 import { Box, Checkbox, Fab, Typography, styled } from "@mui/material";
 import type { LocalUser } from "ente-accounts/services/user";
@@ -289,12 +290,12 @@ export const FileList: React.FC<FileListProps> = ({
                 if (
                     !isSmallerLayout &&
                     filledColumns +
-                        incomingColumns +
-                        Math.ceil(
-                            pendingSplits.length *
-                                spaceBetweenDatesToImageContainerWidthRatio,
-                        ) <=
-                        columns
+                    incomingColumns +
+                    Math.ceil(
+                        pendingSplits.length *
+                        spaceBetweenDatesToImageContainerWidthRatio,
+                    ) <=
+                    columns
                 ) {
                     pendingSplits.push(split);
                     continue;
@@ -706,11 +707,11 @@ export const FileList: React.FC<FileListProps> = ({
                                         onContextMenu={
                                             onContextMenuAction
                                                 ? (e) =>
-                                                      handleContextMenu(
-                                                          e,
-                                                          file,
-                                                          index,
-                                                      )
+                                                    handleContextMenu(
+                                                        e,
+                                                        file,
+                                                        index,
+                                                    )
                                                 : undefined
                                         }
                                     />
@@ -867,7 +868,7 @@ const splitByDate = (annotatedFiles: FileListAnnotatedFile[]) =>
     annotatedFiles.reduce(
         (splits, annotatedFile) => (
             splits.at(-1)?.at(0)?.timelineDateString ==
-            annotatedFile.timelineDateString
+                annotatedFile.timelineDateString
                 ? splits.at(-1)?.push(annotatedFile)
                 : splits.push([annotatedFile]),
             splits
@@ -1134,14 +1135,19 @@ const FileThumbnail: React.FC<FileThumbnailProps> = ({
                     <Avatar {...{ user, file, emailByUserID }} />
                 </AvatarOverlay>
             )}
-            {isFav && (
+            {(isFav || !hasLocation(file)) && (
                 <FavoriteOverlay>
-                    <HugeiconsIcon
-                        icon={StarIcon}
-                        size={20}
-                        fill="currentColor"
-                        aria-hidden
-                    />
+                    {
+                        isFav && (<HugeiconsIcon
+                            icon={StarIcon}
+                            size={20}
+                            fill="currentColor"
+                            aria-hidden
+                        />)
+                    }
+                    {
+                        !hasLocation(file) && (<NotListedLocationRoundedIcon />)
+                    }
                 </FavoriteOverlay>
             )}
 
@@ -1161,6 +1167,8 @@ const FileThumbnail: React.FC<FileThumbnailProps> = ({
         </FileThumbnail_>
     );
 };
+
+const hasLocation = (file: EnteFile): boolean => (!!(file.pubMagicMetadata?.data.lat || file.metadata.latitude)) && (!!(file.pubMagicMetadata?.data.long || file.metadata.longitude));
 
 const FileThumbnail_ = styled("div")<{ disabled: boolean }>`
     display: flex;
@@ -1249,7 +1257,7 @@ const Check = styled("input")<{ $active: boolean }>(
         visibility: visible;
         opacity: 0.5;
     `
-    };
+        };
     
     &:hover {
         visibility: visible;
@@ -1271,7 +1279,7 @@ const Check = styled("input")<{ $active: boolean }>(
 `,
 );
 
-const HoverOverlay = styled("div")<{ checked: boolean }>`
+const HoverOverlay = styled("div") <{ checked: boolean }>`
     opacity: 0;
     left: 0;
     top: 0;
