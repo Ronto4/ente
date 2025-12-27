@@ -54,7 +54,7 @@ export interface FileViewerPhotoSwipeDataSource {
 
 export interface FileViewerPhotoSwipeDelegate<
     T extends FileViewerPhotoSwipeAnnotatedFile =
-        FileViewerPhotoSwipeAnnotatedFile,
+    FileViewerPhotoSwipeAnnotatedFile,
 > {
     getFiles: () => EnteFile[];
     isFavorite: (annotatedFile: T) => boolean | undefined;
@@ -73,7 +73,7 @@ export interface FileViewerPhotoSwipeDelegate<
 
 export interface FileViewerPhotoSwipeCoreOptions<
     T extends FileViewerPhotoSwipeAnnotatedFile =
-        FileViewerPhotoSwipeAnnotatedFile,
+    FileViewerPhotoSwipeAnnotatedFile,
 > {
     initialIndex: number;
     autoPlayMutedVideos?: boolean;
@@ -105,7 +105,7 @@ const fullscreenControlsAutoHideDelayMS = 3000;
 
 export class FileViewerPhotoSwipe<
     T extends FileViewerPhotoSwipeAnnotatedFile =
-        FileViewerPhotoSwipeAnnotatedFile,
+    FileViewerPhotoSwipeAnnotatedFile,
 > {
     private pswp: PhotoSwipe;
 
@@ -585,7 +585,7 @@ export class FileViewerPhotoSwipe<
 
                 const value =
                     intendedVideoQualityForFileID(fileID) == "auto" &&
-                    videoPlaylistURL
+                        videoPlaylistURL
                         ? t("auto")
                         : t("original");
                 if (qualityMenu.value != value) {
@@ -1348,11 +1348,27 @@ export class FileViewerPhotoSwipe<
                     };
 
                     pswp.on("change", () => {
-                        const { fileType, alt } = currSlideData();
+                        const { fileType, alt, imageDate, imageLocation } = currSlideData();
                         const { text: captionText, wasTruncated } =
                             truncateCaptionIfNeeded(alt);
                         const captionP = captionEl.querySelector("p")!;
-                        captionP.innerText = captionText ?? "";
+                        const captionWithMetadata = (() => {
+                            const lineBreak = "<br />";
+                            let html = "";
+                            if (captionText) {
+                                html += captionText.replaceAll("\n", lineBreak) + lineBreak;
+                            }
+                            html += imageDate.toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+                            if (imageLocation) {
+                                html += lineBreak;
+                                html += imageLocation;
+                            }
+                            return html;
+                        })();
+                        // default:
+                        // captionP.innerText = captionText ?? "";
+                        // ours:
+                        captionP.innerHTML = captionWithMetadata;
                         if (wasTruncated) {
                             const moreLink = document.createElement("span");
                             moreLink.className = "pswp__caption-more";
@@ -1360,9 +1376,7 @@ export class FileViewerPhotoSwipe<
                             moreLink.addEventListener("click", handleViewInfo);
                             captionP.appendChild(moreLink);
                         }
-                        captionEl.style.display = captionText
-                            ? "block"
-                            : "none";
+                        captionEl.style.display = "block"; // We always have at least the date, thus always showing this.
                         captionEl.classList.toggle(
                             "ente-video",
                             fileType == FileType.video,

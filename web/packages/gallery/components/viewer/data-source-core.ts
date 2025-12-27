@@ -1,5 +1,6 @@
 import type { PublicAlbumsCredentials } from "ente-base/http";
 import log from "ente-base/log";
+import { reverseGeocodeOrigin } from "ente-base/origins";
 import type { RenderableSourceURLs } from "ente-gallery/services/download-core";
 import type { RawExifTags } from "ente-gallery/services/exif";
 import type { EnteFile } from "ente-media/file";
@@ -27,6 +28,18 @@ export type ItemData = PhotoSwipeSlideData & {
     isContentZoomable?: boolean;
     fetchFailed?: boolean;
     isTransient?: boolean;
+    /**
+     * The date the image was taken.
+     */
+    imageDate: Date;
+    /**
+     * The location the image was taken, if we know it.
+     */
+    rawImageLocation?: { lat: number, long: number };
+    /**
+     * A user-friendly representation of {@link rawImageLocation}.
+     */
+    imageLocation?: string;
 };
 
 interface FileInfoExif {
@@ -145,12 +158,22 @@ export const createFileViewerDataSource = ({
             forgetItemDataForFileID(fileID);
         }
 
+        const imageDate = new Date(0);
+        imageDate.setUTCSeconds((file.pubMagicMetadata?.data.editedTime ?? file.metadata.creationTime) / (1000 * 1000));
+
+        const lat = file.pubMagicMetadata?.data.lat ?? file.metadata.latitude;
+        const long = file.pubMagicMetadata?.data.long ?? file.metadata.longitude;
+        const rawImageLocation = lat && long ? {
+            lat,
+            long,
+        } : undefined;
+
         let itemData = _state.itemDataByFileID.get(fileID);
 
         _state.needsRefreshByFileID.set(file.id, needsRefresh);
 
         if (!itemData) {
-            itemData = { fileID, fileType, isContentLoading: true };
+            itemData = { fileID, fileType, isContentLoading: true, imageDate, rawImageLocation };
             _state.itemDataByFileID.set(file.id, itemData);
             void enqueueUpdates(file, opts);
         }
@@ -189,6 +212,43 @@ export const createFileViewerDataSource = ({
         const fileID = file.id;
         const fileType = file.metadata.fileType;
 
+        const imageDate = new Date(0);
+        imageDate.setUTCSeconds((file.pubMagicMetadata?.data.editedTime ?? file.metadata.creationTime) / (1000 * 1000));
+
+        let imageLocation: string | undefined = undefined;
+        // TODO: @Ronto4 2025-12-27 Copied from web/apps/cast/src/services/render.ts. Deduplicate?
+        {
+            const lat = file.pubMagicMetadata?.data.lat ?? file.metadata.latitude;
+            const long = file.pubMagicMetadata?.data.long ?? file.metadata.longitude;
+            if (lat === undefined || long == undefined) {
+                imageLocation = undefined;
+            } else {
+                const reverseGeocodeOriginUrl = reverseGeocodeOrigin();
+                if (reverseGeocodeOriginUrl) {
+                    const locationUrl = `${reverseGeocodeOriginUrl}/reverse?lat=${lat}&lon=${long}&format=jsonv2&zoom=10`;
+                    // Only include the relevant part, see https://nominatim.org/release-docs/5.2/api/Output/ for more details.
+                    const locationResult = await (await fetch(locationUrl)).json() as
+                        | { error: string }
+                        | {
+                            display_name: string,
+                            addresstype: string,
+                            address: {
+                                [key: string]: string,
+                                country_code: string,
+                            },
+                        };
+                    if ("display_name" in locationResult) {
+                        // TODO: @Ronto4 2025-12-26 Maybe rather use `toLocaleUpperCase` for the country code?
+                        imageLocation = `${locationResult.address[locationResult.addresstype]}, ${locationResult.address.country_code.toUpperCase()}`;
+                    } else {
+                        imageLocation = undefined;
+                    }
+                } else {
+                    imageLocation = undefined;
+                }
+            }
+        }
+
         const update = (itemData: Partial<ItemData>, validTill?: Date) => {
             const alt = file.pubMagicMetadata?.data.caption;
 
@@ -196,6 +256,8 @@ export const createFileViewerDataSource = ({
                 ...itemData,
                 fileType,
                 fileID,
+                imageDate,
+                imageLocation,
                 alt,
             });
             if (validTill) {
