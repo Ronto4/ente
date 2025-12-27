@@ -1,4 +1,5 @@
 import log from "ente-base/log";
+import { reverseGeocodeOrigin } from "ente-base/origins";
 import type { FileInfoExif } from "ente-gallery/components/FileInfo";
 import { downloadManager } from "ente-gallery/services/download";
 import { extractRawExif, parseExif } from "ente-gallery/services/exif";
@@ -150,6 +151,18 @@ export type ItemData = PhotoSwipeSlideData & {
      * considered transient, and should not be cached.
      */
     isTransient?: boolean;
+    /**
+     * The date the image was taken.
+     */
+    imageDate: Date;
+    /**
+     * The location the image was taken, if we know it.
+     */
+    rawImageLocation?: { lat: number, long: number };
+    /**
+     * A user-friendly representation of {@link rawImageLocation}.
+     */
+    imageLocation?: string;
 };
 
 /**
@@ -335,6 +348,15 @@ export const itemDataForFile = (
         forgetItemDataForFileID(fileID);
     }
 
+    const imageDate = new Date(0);
+    imageDate.setUTCSeconds((file.pubMagicMetadata?.data.editedTime ?? file.metadata.creationTime) / (1000 * 1000));
+    const lat = file.pubMagicMetadata?.data.lat ?? file.metadata.latitude;
+    const long = file.pubMagicMetadata?.data.long ?? file.metadata.longitude;
+    const rawImageLocation = lat && long ? {
+        lat,
+        long,
+    } : undefined
+
     let itemData = _state.itemDataByFileID.get(fileID);
 
     // We assume that there is only one file viewer that is using us at a given
@@ -342,7 +364,7 @@ export const itemDataForFile = (
     _state.needsRefreshByFileID.set(file.id, needsRefresh);
 
     if (!itemData) {
-        itemData = { fileID, fileType, isContentLoading: true };
+        itemData = { fileID, fileType, isContentLoading: true, imageDate, rawImageLocation };
         _state.itemDataByFileID.set(file.id, itemData);
         void enqueueUpdates(file, opts);
     }
@@ -435,6 +457,43 @@ const enqueueUpdates = async (
     const fileID = file.id;
     const fileType = file.metadata.fileType;
 
+    const imageDate = new Date(0);
+    imageDate.setUTCSeconds((file.pubMagicMetadata?.data.editedTime ?? file.metadata.creationTime) / (1000 * 1000));
+
+    let imageLocation: string | undefined = undefined;
+    // TODO: @Ronto4 2025-12-27 Copied from web/apps/cast/src/services/render.ts. Deduplicate?
+    {
+        const lat = file.pubMagicMetadata?.data.lat ?? file.metadata.latitude;
+        const long = file.pubMagicMetadata?.data.long ?? file.metadata.longitude;
+        if (lat === undefined || long === undefined) {
+            imageLocation = undefined;
+        } else {
+            const reverseGeocodeOriginUrl = reverseGeocodeOrigin();
+            if (reverseGeocodeOriginUrl) {
+                const locationUrl = `${reverseGeocodeOriginUrl}/reverse?lat=${lat}&lon=${long}&format=jsonv2&zoom=10`;
+                // Only include the relevant part, see https://nominatim.org/release-docs/5.2/api/Output/ for more details.
+                const locationResult = await (await fetch(locationUrl)).json() as
+                    | { error: string }
+                    | {
+                        display_name: string,
+                        addresstype: string,
+                        address: {
+                            [key: string]: string,
+                            country_code: string,
+                        },
+                    };
+                if ("display_name" in locationResult) {
+                    // TODO: @Ronto4 2025-12-26 Maybe rather use `toLocaleUpperCase` for the country code?
+                    imageLocation = `${locationResult.address[locationResult.addresstype]}, ${locationResult.address.country_code.toUpperCase()}`;
+                } else {
+                    imageLocation = undefined;
+                }
+            } else {
+                imageLocation = undefined;
+            }
+        }
+    }
+
     const update = (itemData: Partial<ItemData>, validTill?: Date) => {
         // Use the file's caption as its alt text (in addition to using it as
         // the visible caption).
@@ -444,6 +503,8 @@ const enqueueUpdates = async (
             ...itemData,
             fileType,
             fileID,
+            imageDate,
+            imageLocation,
             alt,
         });
         if (validTill) {

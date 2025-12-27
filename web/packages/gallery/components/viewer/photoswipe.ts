@@ -905,7 +905,7 @@ export class FileViewerPhotoSwipe {
 
                 const value =
                     intendedVideoQualityForFileID(fileID) == "auto" &&
-                    videoPlaylistURL
+                        videoPlaylistURL
                         ? t("auto")
                         : t("original");
                 // Check first to avoid spurious updates.
@@ -1585,11 +1585,28 @@ export class FileViewerPhotoSwipe {
                     };
 
                     pswp.on("change", () => {
-                        const { fileType, alt } = currSlideData();
+                        const { fileType, alt, imageDate, imageLocation } = currSlideData();
                         const { text: captionText, wasTruncated } =
                             truncateCaptionIfNeeded(alt);
                         const captionP = captionEl.querySelector("p")!;
-                        captionP.innerText = captionText ?? "";
+                        const captionWithMetadata = (() => {
+                            let html = "";
+                            if (captionText) {
+                                html += captionText + "<br />";
+                            }
+                            {
+                                html += imageDate.toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+                            }
+                            if (imageLocation) {
+                                html += "<br />";
+                                html += imageLocation;
+                            }
+                            return html;
+                        })();
+                        // default:
+                        // captionP.innerText = captionText ?? "";
+                        // our:
+                        captionP.innerHTML = captionWithMetadata;
                         if (wasTruncated) {
                             const moreLink = document.createElement("span");
                             moreLink.className = "pswp__caption-more";
@@ -1597,9 +1614,7 @@ export class FileViewerPhotoSwipe {
                             moreLink.addEventListener("click", handleViewInfo);
                             captionP.appendChild(moreLink);
                         }
-                        captionEl.style.display = captionText
-                            ? "block"
-                            : "none";
+                        captionEl.style.display = "block"; // We always have at least the date, thus always showing this.
                         captionEl.classList.toggle(
                             "ente-video",
                             fileType == FileType.video,
